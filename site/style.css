@@ -161,3 +161,7 @@ tr:last-child td{border-bottom:none}
 .chip{padding:6px 12px;border-radius:999px;border:1px solid var(--line);background:#0e1528;color:var(--ink);font-size:13px;font-weight:700;cursor:pointer}
 .shift-seg button.on{background:#052e22;border-color:var(--green);color:var(--green)}
 .shift-seg button.off{opacity:.45;filter:grayscale(1)}
+.search-results{display:flex;flex-direction:column;gap:6px;margin-top:8px}
+.search-hit{display:flex;justify-content:space-between;align-items:center;gap:8px;padding:11px 13px;border-radius:12px;border:1.5px solid var(--line);background:#0e1528;color:var(--ink);font-size:15px;cursor:pointer;text-align:left}
+.search-hit span{color:var(--green);font-weight:800;white-space:nowrap}
+.empty.small{font-size:13px}

@@ -94,25 +94,20 @@ curl -s "$W/api/history?month=2026-10" -H "$AUTH"          # per-day totals
 curl -s "$W/api/stats?month=2026-10" -H "$AUTH"            # totals + top items
 ```
 
-## Site key (repo owner, legacy mode only)
-- Set them per repo: `gh secret set SITE_KEY -R tadakuro/sales-notes-apk` (same value
+## Site key (repo owner)
+- Set it: `gh secret set SITE_KEY -R tadakuro/sales-notes-apk` (same value
   as the web repo's `SITE_KEY`), or repo → Settings → Secrets → Actions.
   `SYNC_URL` is already set on this repo.
-- Change/rotate it the same way — the `Deploy to Pages` workflow rebuilds the site automatically (~1 min).
-- The workflow hashes `sn::<key>` with SHA-256 and injects only the hash into `site/app.js`. The raw key never lands in git.
+- The Build APK workflow hashes `sn::<key>` with SHA-256 and injects only the hash into the APK's `site/app.js`. The raw key never lands in git.
 - Honest limits: this is a static site, so the gate is a *casual* lock — all code ships to the browser, and anyone technical can bypass client-side checks. Use a long passphrase. Real access control would need a server in front.
 
-## Deploy (GitHub Pages)
-Pages source = **GitHub Actions** (workflow `.github/workflows/deploy-pages.yml` builds `site/` → deploys).
-Just push to `main` — the site updates automatically in ~1 minute.
-
 ## Android APK
-Same `site/` wrapped in an offline WebView (`android/`), built by CI:
+`site/` wrapped in an offline WebView (`android/`), built by CI:
 - every `main` push → verification build (APK in the run's Artifacts)
 - **Releases**: Actions → `Build APK` → `Run workflow` → fill `release_tag`
-  (e.g. `v1.0.0`) → APK published at repo → Releases
-- sideload on Android 7.0+, same site key as the web version; Export JSON/Excel
-  saves to Downloads, Import reads JSON backup.
+  (e.g. `v1.2.0`) → APK published at repo → Releases
+- sideload on Android 7.0+, Masuk/Daftar with your account; Export JSON
+  backup saves to Downloads, Import reads JSON backup.
 
 ## Optional: local Python backend
 `app.py` + `static/` is the older version with a real server + SQLite
@@ -120,7 +115,7 @@ Same `site/` wrapped in an offline WebView (`android/`), built by CI:
 github.io site does not use it.
 
 ## Files
-- `site/index.html`, `site/app.js`, `site/style.css` — the live Pages site source
+- `site/index.html`, `site/app.js`, `site/style.css` — the APK WebView source
 - `worker/worker.js`, `worker/schema.sql`, `worker/wrangler.toml` — Cloudflare sync backend
 - `.github/workflows/deploy-pages.yml` — injects key hash + sync URL + deploys
 - `app.py`, `static/` — optional local backend version

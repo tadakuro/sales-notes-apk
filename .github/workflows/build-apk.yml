@@ -109,10 +109,10 @@ jobs:
         run: |
           TAG="${{ inputs.release_tag }}"
           NOTES="## Sales Notes ${TAG}
-          Android wrapper around the same \`site/\` that powers https://tadakuro.github.io/sales-notes/ (offline-first, same site key, sync + Telegram reports included).
+          Android app for your shop's sales notes (offline-first, account login, sync included).
           ### Isi
-          - 3 shift (Pagi / Siang / Lembur), Cash vs QRIS, statistik + riwayat
-          - Laporan Telegram format profesional + Excel (.xls) + share file
+          - 3 shift (Pagi / Siang / Lembur, bisa on/off per akun), Cash vs QRIS, statistik + riwayat
+          - Cari produk dari tab Jual (ketik nama → ketuk → form terisi)
           - Sinkron multi-perangkat via Cloudflare Worker + D1
           ### Install
           1. Download \`${APK_NAME}\` di bawah, buka di HP Android (min Android 7.0)

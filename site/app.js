@@ -206,7 +206,7 @@ function closeNote(id) {
   const list = loadEntries().filter(e => !e.deleted && e.note_id === id);
   if (!list.length) { toast('Belum ada penjualan di catatan ini', 'err'); return; }
   const s = summarize(list);
-  if (!confirm(`Kunci "${n.title}" (${n.date})?\nTotal ${money(s.total)} · ${s.count} penjualan.\nLaporan otomatis dikirim ke Telegram.`)) return;
+  if (!confirm(`Kunci "${n.title}" (${n.date})?\nTotal ${money(s.total)} · ${s.count} penjualan.`)) return;
   const now = nowIso();
   const states = loadStates();
   states[id] = { date: n.date, closed: 1, total: s.total, cash_total: s.cash_total,
@@ -215,13 +215,6 @@ function closeNote(id) {
   markDirtyState(id);
   renderSell(); renderStats(); syncSoon();
   toast('Catatan dikunci 🔒 ' + money(s.total), 'ok');
-  // Auto-send the locked shift's report to Telegram (best-effort, lock already saved).
-  try {
-    const sh = normShift(n.shift);
-    postShiftReport(n.date, sh).then(ok => {
-      toast(ok ? 'Laporan ' + shiftLabel(sh) + ' terkirim otomatis ✈️' : 'Kunci tersimpan, laporan gagal terkirim', ok ? 'ok' : 'err');
-    });
-  } catch (e) {}
 }
 function reopenNote(id) {
   const states = loadStates();
@@ -583,14 +576,6 @@ function renderSell() {
     const el = $('shiftTotals');
     if (el) el.textContent = `☀️ Pagi: ${money(sums.pagi.t)} (${sums.pagi.c}) · 🌤️ Siang: ${money(sums.siang.t)} (${sums.siang.c}) · 🌙 Lembur: ${money(sums.lembur.t)} (${sums.lembur.c})`;
   } catch (e) {}
-  try {
-    const hint = $('shareHint');
-    if (hint) {
-      const se = shiftEntries(viewDate || todayStr(), viewShift);
-      const ss = summarize(se);
-      hint.textContent = shiftBadge(viewShift) + ' · ' + (viewDate || todayStr()) + ' · ' + money(ss.total) + ' (' + ss.count + ' sales) — yang dibagikan hanya shift ini.';
-    }
-  } catch (e) {}
   renderDayList(list); loadHeader();
 }
 /* single direct-save form (merged cart + manual input) */
@@ -865,210 +850,32 @@ function loadHistory() {
 }
 
 /* ---------- backup ---------- */
-/* ---------- share per-shift report (WA text + Excel CSV) ---------- */
-function shiftEntries(date, shift) {
-  const sh = normShift(shift ?? viewShift);
-  const byId = {};
-  loadNotes().forEach(n => { byId[n.id] = n; });
-  return loadEntries()
-    .filter(e => !e.deleted && e.date === date)
-    .filter(e => normShift(byId[e.note_id] ? byId[e.note_id].shift : 'pagi') === sh)
-    .sort((a, b) => String(a.created_at).localeCompare(String(b.created_at)));
-}
-function fmtDateId(date) {
-  try {
-    const [y, m, d] = date.split('-').map(Number);
-    return new Date(y, m - 1, d).toLocaleDateString('id-ID', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
-  } catch (e) { return date; }
-}
-function fmtTimeShort(d) {
-  try {
-    return new Date(d).toLocaleString('id-ID', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }).replace(',', '');
-  } catch (e) { return ''; }
-}
-function buildShiftReport(date, shift) {
-  // Plain-text version: used for Copy / file fallback. Clean, no markdown symbols.
-  const sh = normShift(shift ?? viewShift);
-  const list = shiftEntries(date, sh);
-  const s = summarize(list);
-  const shop = settings.shop_name || 'My Sales Notes';
-  const dateId = fmtDateId(date);
-  const avg = s.count ? Math.round(s.total / s.count) : 0;
-  const cashPct = s.total ? Math.round(s.cash_total / s.total * 100) : 0;
-  const qrisPct = s.total ? Math.round(s.qris_total / s.total * 100) : 0;
-  const bar = '━━━━━━━━━━━━━━';
-  const lines = [];
-  lines.push('LAPORAN PENJUALAN — ' + shop.toUpperCase());
-  lines.push(bar);
-  lines.push('Tanggal : ' + dateId);
-  lines.push('Shift   : ' + shiftBadge(sh));
-  lines.push(bar);
-  lines.push('Total Pendapatan : ' + money(s.total));
-  lines.push('Transaksi : ' + s.count + 'x  |  Rata-rata : ' + money(avg));
-  lines.push('Tunai : ' + money(s.cash_total) + ' (' + s.cash_count + 'x, ' + cashPct + '%)');
-  lines.push('QRIS  : ' + money(s.qris_total) + ' (' + s.qris_count + 'x, ' + qrisPct + '%)');
-  lines.push(bar);
-  if (!list.length) lines.push('Belum ada transaksi pada shift ini.');
-  else {
-    lines.push('Rincian Transaksi (' + list.length + ') :');
-    list.forEach((e, i) => {
-      const pay = e.payment === 'qris' ? 'QRIS' : 'Tunai';
-      lines.push((i + 1) + '. ' + e.item + ' — ' + e.qty + ' x ' + money(e.price) + ' = ' + money(e.subtotal) + ' [' + pay + ']');
-    });
+/* ---------- product quick-search on Jual ---------- */
+// Type a name → matching catalog products appear → tap one to fill the form.
+function renderSearch() {
+  const box = $('searchResults');
+  if (!box) return;
+  const q = ($('fSearch').value || '').trim().toLowerCase();
+  box.innerHTML = '';
+  if (!q) { box.classList.add('hidden'); return; }
+  const hits = loadProducts()
+    .filter(p => !p.deleted && String(p.name || '').toLowerCase().includes(q))
+    .slice(0, 8);
+  box.classList.remove('hidden');
+  if (!hits.length) {
+    box.innerHTML = '<div class="empty small">Tidak ada produk "' + esc(($('fSearch').value || '').trim()) + '" — isi manual di bawah.</div>';
+    return;
   }
-  lines.push(bar);
-  lines.push('Disusun otomatis • ' + shop + ' • ' + fmtTimeShort(new Date()));
-  return { list, summary: s, text: lines.join('\n') };
-}
-function buildShiftReportHtml(date, shift) {
-  // Rich version for Telegram (parse_mode HTML). Proper <b>/<i>, escaped, truncated safely.
-  const sh = normShift(shift ?? viewShift);
-  const list = shiftEntries(date, sh);
-  const s = summarize(list);
-  const shop = settings.shop_name || 'My Sales Notes';
-  const shopEsc = esc(shop);
-  const shopUpEsc = esc(shop.toUpperCase());
-  const dateId = esc(fmtDateId(date));
-  const avg = s.count ? Math.round(s.total / s.count) : 0;
-  const cashPct = s.total ? Math.round(s.cash_total / s.total * 100) : 0;
-  const qrisPct = s.total ? Math.round(s.qris_total / s.total * 100) : 0;
-  const bar = '━━━━━━━━━━━━━━';
-  const L = [];
-  L.push('🧾 <b>LAPORAN PENJUALAN</b>');
-  L.push('<b>' + shopUpEsc + '</b>');
-  L.push(bar);
-  L.push('📅 ' + dateId);
-  L.push('⏰ Shift: <b>' + esc(shiftBadge(sh)) + '</b>');
-  L.push(bar);
-  L.push('💰 Total Pendapatan');
-  L.push('<b>' + esc(money(s.total)) + '</b>  •  ' + s.count + ' transaksi');
-  L.push('Rata-rata: ' + esc(money(avg)) + ' / transaksi');
-  L.push('');
-  L.push('💵 Tunai: <b>' + esc(money(s.cash_total)) + '</b> (' + s.cash_count + 'x, ' + cashPct + '%)');
-  L.push('📱 QRIS: <b>' + esc(money(s.qris_total)) + '</b> (' + s.qris_count + 'x, ' + qrisPct + '%)');
-  L.push(bar);
-  if (!list.length) {
-    L.push('<i>Belum ada transaksi pada shift ini.</i>');
-  } else {
-    L.push('🧾 <b>Rincian Transaksi (' + list.length + ')</b>');
-    const MAX_ITEMS = 60;
-    const shown = list.slice(0, MAX_ITEMS);
-    shown.forEach((e, i) => {
-      const payIcon = e.payment === 'qris' ? '📱' : '💵';
-      L.push('<b>' + (i + 1) + '.</b> ' + esc(e.item));
-      L.push('   ' + e.qty + ' × ' + esc(money(e.price)) + ' = <b>' + esc(money(e.subtotal)) + '</b>  ' + payIcon);
+  hits.forEach(p => {
+    const b = document.createElement('button');
+    b.type = 'button'; b.className = 'search-hit';
+    b.innerHTML = '<b>' + esc(p.name) + '</b><span>' + esc(money(p.price)) + '</span>';
+    b.addEventListener('click', () => {
+      fillForm(p.name, p.price);
+      $('fSearch').value = ''; renderSearch();
     });
-    if (list.length > MAX_ITEMS) L.push('<i>… +' + (list.length - MAX_ITEMS) + ' transaksi lainnya (lihat Excel)</i>');
-  }
-  L.push(bar);
-  L.push('<i>Disusun otomatis • ' + shopEsc + ' • ' + esc(fmtTimeShort(new Date())) + '</i>');
-  return { list, summary: s, html: L.join('\n') };
-}
-function shiftExcelContent(date, shift) {
-  // HTML-table .xls: Excel opens it with title, colored header, borders,
-  // and real numbers (Qty/Harga/Subtotal) so SUM() works.
-  const sh = normShift(shift ?? viewShift);
-  const { list, summary } = buildShiftReport(date, sh);
-  const shop = settings.shop_name || 'My Sales Notes';
-  let dateId = date;
-  try {
-    const [y, m, d] = date.split('-').map(Number);
-    dateId = new Date(y, m - 1, d).toLocaleDateString('id-ID', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
-  } catch (e) {}
-  const avg = summary.count ? Math.round(summary.total / summary.count) : 0;
-  const num = 'mso-number-format:"#,##0";';
-  const th = 'background:#1F4E5F;color:#FFFFFF;font-weight:bold;text-align:center;';
-  const td = 'border:.5pt solid #B0B0B0;';
-  const right = td + 'text-align:right;' + num;
-  const center = td + 'text-align:center;';
-  let h = '<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel">';
-  h += '<head><meta charset="UTF-8"></head><body><table border="1" cellpadding="4" cellspacing="0">';
-  h += '<tr><td colspan="6" style="font-size:16pt;font-weight:bold;">LAPORAN PENJUALAN — ' + esc(shop.toUpperCase()) + '</td></tr>';
-  h += '<tr><td colspan="6">Tanggal: ' + esc(dateId) + ' &nbsp;|&nbsp; Shift: ' + esc(shiftLabel(sh)) + '</td></tr>';
-  h += '<tr><td colspan="6"></td></tr>';
-  h += '<tr><td style="' + th + '">No</td><td style="' + th + '">Item</td><td style="' + th + '">Qty</td>'
-    + '<td style="' + th + '">Harga (Rp)</td><td style="' + th + '">Subtotal (Rp)</td><td style="' + th + '">Pembayaran</td></tr>';
-  list.forEach((e, i) => {
-    const pay = e.payment === 'qris' ? 'QRIS' : 'Tunai';
-    h += '<tr><td style="' + center + '">' + (i + 1) + '</td>'
-      + '<td style="' + td + '">' + esc(e.item) + '</td>'
-      + '<td style="' + center + '">' + e.qty + '</td>'
-      + '<td style="' + right + '">' + e.price + '</td>'
-      + '<td style="' + right + '">' + e.subtotal + '</td>'
-      + '<td style="' + center + '">' + pay + '</td></tr>';
+    box.appendChild(b);
   });
-  h += '<tr><td colspan="6"></td></tr>';
-  const sumRow = (label, val, extra) =>
-    '<tr><td colspan="4" style="' + td + 'font-weight:bold;">' + label + '</td>'
-    + '<td style="' + right + 'font-weight:bold;">' + val + '</td>'
-    + '<td style="' + td + '">' + extra + '</td></tr>';
-  h += sumRow('Total Pendapatan', summary.total, summary.count + ' transaksi');
-  h += sumRow('Tunai', summary.cash_total, summary.cash_count + ' trx');
-  h += sumRow('QRIS', summary.qris_total, summary.qris_count + ' trx');
-  h += sumRow('Rata-rata / transaksi', avg, '');
-  h += '<tr><td colspan="6">Disusun otomatis oleh ' + esc(shop) + '</td></tr>';
-  h += '</table></body></html>';
-  return h;
-}
-function shiftFileName(date, shift, ext) {
-  return 'sales-' + date + '-' + normShift(shift ?? viewShift) + '.' + ext;
-}
-function downloadShiftExcel() {
-  const date = viewDate || todayStr();
-  const { list } = buildShiftReport(date, viewShift);
-  if (!list.length) { toast('Shift ini masih kosong', 'err'); return; }
-  const blob = new Blob([shiftExcelContent(date, viewShift)], { type: 'application/vnd.ms-excel;charset=utf-8' });
-  const a = document.createElement('a');
-  a.href = URL.createObjectURL(blob);
-  a.download = shiftFileName(date, viewShift, 'xls');
-  a.click();
-  setTimeout(() => URL.revokeObjectURL(a.href), 5000);
-  toast('Excel shift ' + shiftLabel(viewShift) + ' diunduh ✓', 'ok');
-}
-async function copyShiftReport() {
-  const date = viewDate || todayStr();
-  const { list, text } = buildShiftReport(date, viewShift);
-  if (!list.length) { toast('Shift ini masih kosong', 'err'); return; }
-  try { await navigator.clipboard.writeText(text); toast('Teks laporan disalin ✓', 'ok'); }
-  catch (e) { toast('Gagal menyalin', 'err'); }
-}
-async function postShiftReport(date, shift) {
-  // Sends via Worker proxy (bot token stays server-side). Returns true on success.
-  // Uses rich HTML formatting so Telegram renders bold/italic properly.
-  if (!SYNC_ON) return false;
-  if (!authed()) return false;
-  if (!navigator.onLine) return false;
-  const { html } = buildShiftReportHtml(date, shift);
-  try {
-    const r = await fetch(SYNC_URL + '/api/report', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + authToken() },
-      body: JSON.stringify({ date, shift: normShift(shift), text: html, parse_mode: 'HTML' }),
-    });
-    return r.ok;
-  } catch (e) { return false; }
-}
-async function sendShiftTelegram() {
-  const date = viewDate || todayStr();
-  const { list } = buildShiftReport(date, viewShift);
-  if (!list.length) { toast('Shift ini masih kosong', 'err'); return; }
-  if (!SYNC_ON) { toast('Sync mati — Telegram butuh Worker', 'err'); return; }
-  if (!authed()) { toast('Masuk dulu', 'err'); return; }
-  toast('Mengirim ke Telegram…', 'info', 1500);
-  const ok = await postShiftReport(date, viewShift);
-  toast(ok ? 'Terkirim ke Telegram ✓ ' + shiftLabel(viewShift) : 'Gagal kirim — cek koneksi / bot', ok ? 'ok' : 'err');
-}
-async function shareShiftFile() {
-  const date = viewDate || todayStr();
-  const { list } = buildShiftReport(date, viewShift);
-  if (!list.length) { toast('Shift ini masih kosong', 'err'); return; }
-  const file = new File([shiftExcelContent(date, viewShift)], shiftFileName(date, viewShift, 'xls'), { type: 'application/vnd.ms-excel' });
-  if (navigator.canShare && navigator.canShare({ files: [file] })) {
-    try { await navigator.share({ files: [file], title: 'Laporan ' + shiftLabel(viewShift) + ' ' + date }); return; }
-    catch (e) { if (String(e && e.name) === 'AbortError') return; }
-  }
-  // Fallback: download the Excel file.
-  downloadShiftExcel();
 }
 function exportDB() {
   const blob = new Blob([JSON.stringify({ entries: loadEntries(), notes: loadNotes(), states: loadStates(), products: loadProducts(), settings, exported_at: nowIso() }, null, 2)], { type: 'application/json' });
@@ -1300,10 +1107,7 @@ $('btnSaveSettings').addEventListener('click', saveSettings);
 $('btnChangeKey').addEventListener('click', changeKey);
 $('btnExport').addEventListener('click', exportDB);
 $('btnImport').addEventListener('click', importDB);
-if ($('btnShareTelegram')) $('btnShareTelegram').addEventListener('click', sendShiftTelegram);
-if ($('btnShareExcel')) $('btnShareExcel').addEventListener('click', downloadShiftExcel);
-if ($('btnShareFile')) $('btnShareFile').addEventListener('click', shareShiftFile);
-if ($('btnCopyReport')) $('btnCopyReport').addEventListener('click', copyShiftReport);
+$('fSearch').addEventListener('input', renderSearch);
 
 /* ---------- init ---------- */
 (function init() {
