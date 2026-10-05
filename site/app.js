@@ -5,10 +5,9 @@
  */
 const SITE_KEY_HASH = "__SITE_KEY_HASH__";
 const SITE_ENFORCED = typeof SITE_KEY_HASH === 'string' && !SITE_KEY_HASH.startsWith('__');
-// Build flavor: Pages (web) injects '0' → classic site-key gate;
-// APK build injects '1' → account login (each user gets a private panel).
-const APK_BUILD = "__APK_BUILD__";
-const IS_APK = typeof APK_BUILD === 'string' && APK_BUILD === '1';
+// This repo builds the Android app only: account login is always on here.
+// (The web version in tadakuro/sales-notes uses the classic site-key gate.)
+const IS_APK = true;
 const SYNC_URL = "__SYNC_URL__";
 const SYNC_ON = typeof SYNC_URL === 'string' && SYNC_URL.startsWith('http');
 

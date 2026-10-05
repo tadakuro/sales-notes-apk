@@ -1,19 +1,19 @@
-# My Sales Notes — personal daily sales notebook
+# Sales Notes — Android app
 
-No cashier system, no barcode, no stock. Just your own sales notes. Web app only.
+Same sales notebook as the web version (**tadakuro/sales-notes**), wrapped as an
+offline Android WebView app. This repo is APK-only: the web version lives and
+deploys separately, so the two can never mix again.
 
-**Live site:** https://tadakuro.github.io/sales-notes/
+**Releases (APK):** https://github.com/tadakuro/sales-notes-apk/releases
 
-- **accounts (APK only)**: visitors Daftar (register) / Masuk (login) with username + password —
+- **accounts**: Daftar (register) / Masuk (login) with username + password —
   each account gets its own **private panel** (isolated `account_id` in D1 +
   per-account localStorage namespace), synced across that account's devices.
-  The **web version keeps the classic site-key gate** — one codebase, split by
-  a build-time flag (`APK_BUILD`: Pages injects `0`, APK injects `1`).
   Old site-key installs keep working against the same Worker (legacy shared panel).
 - each day auto-starts a **fresh note** — entries auto-save with daily total
 - entry fields: **item name, quantity, price, date, payment (Cash / QRIS)**, optional note
 - totals: day total + Cash vs QRIS breakdown, monthly history, export/import JSON
-- **no server, no install** — runs 100% in the browser, data stays in each device's localStorage
+- **offline-first** — data stays on the device, syncs via Cloudflare Worker + D1
 
 ## Daily flow
 1. **Day tab** lists that day's notes. **+ New note** starts another note under the
@@ -56,7 +56,7 @@ wrangler secret put SITE_KEY              # same value as the SITE_KEY GitHub se
 wrangler deploy                           # note the https://….workers.dev URL
 ```
 4. Point the site at it (empty = offline-only mode):
-`gh secret set SYNC_URL -R tadakuro/sales-notes` with the worker URL.
+`gh secret set SYNC_URL -R tadakuro/sales-notes-apk` with the worker URL.
 Pushes redeploy the site automatically (~1 min).
 5. After pulling worker updates, apply DB migrations in order then redeploy:
 ```bash
@@ -95,7 +95,9 @@ curl -s "$W/api/stats?month=2026-10" -H "$AUTH"            # totals + top items
 ```
 
 ## Site key (repo owner, legacy mode only)
-- Set it: `gh secret set SITE_KEY -R tadakuro/sales-notes` (prompts privately), or repo → Settings → Secrets → Actions → New secret `SITE_KEY`.
+- Set them per repo: `gh secret set SITE_KEY -R tadakuro/sales-notes-apk` (same value
+  as the web repo's `SITE_KEY`), or repo → Settings → Secrets → Actions.
+  `SYNC_URL` is already set on this repo.
 - Change/rotate it the same way — the `Deploy to Pages` workflow rebuilds the site automatically (~1 min).
 - The workflow hashes `sn::<key>` with SHA-256 and injects only the hash into `site/app.js`. The raw key never lands in git.
 - Honest limits: this is a static site, so the gate is a *casual* lock — all code ships to the browser, and anyone technical can bypass client-side checks. Use a long passphrase. Real access control would need a server in front.
