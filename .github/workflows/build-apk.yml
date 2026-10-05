@@ -49,9 +49,8 @@ jobs:
           yes | sdkmanager --licenses > /dev/null || true
           sdkmanager "platforms;android-34" "build-tools;34.0.0"
 
-      - name: Prepare WebView assets (same injection as Pages)
+      - name: Prepare WebView assets (account-login build, no site key needed)
         env:
-          SITE_KEY: ${{ secrets.SITE_KEY }}
           SYNC_URL: ${{ secrets.SYNC_URL }}
         run: |
           set -e
@@ -65,15 +64,8 @@ jobs:
           # Local files: drop cache-buster queries (asset loader has no query support).
           sed -i 's|style.css?v=__BUILD_ID__|style.css|; s|app.js?v=__BUILD_ID__|app.js|' index.html
           if grep -q "__BUILD_ID__" index.html; then echo "build id strip failed"; exit 1; fi
-          # Same site-key hash + sync URL as the Pages deploy, so the APK behaves
-          # exactly like the live site (key gate + Telegram + sync). Without the
-          # secrets it stays in offline, unlocked mode instead of failing.
-          if [ -n "$SITE_KEY" ]; then
-            HASH=$(printf '%s' "sn::$SITE_KEY" | sha256sum | cut -d' ' -f1)
-            sed -i "s/__SITE_KEY_HASH__/$HASH/" app.js
-          else
-            echo "WARNING: SITE_KEY secret not set — APK will be unlocked/offline-only"
-          fi
+          # Only the sync URL is injected: auth is 100% account tokens.
+          # (__SITE_KEY_HASH__ stays a placeholder — no APK code path reads it.)
           URL_ESC=$(printf '%s' "${SYNC_URL:-}" | sed 's/[&|]/\\&/g')
           sed -i "s|__SYNC_URL__|${URL_ESC}|g" app.js
           if grep -q "__SYNC_URL__" app.js; then echo "sync url injection failed"; exit 1; fi

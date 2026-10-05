@@ -94,11 +94,10 @@ curl -s "$W/api/history?month=2026-10" -H "$AUTH"          # per-day totals
 curl -s "$W/api/stats?month=2026-10" -H "$AUTH"            # totals + top items
 ```
 
-## Site key (repo owner)
-- Set it: `gh secret set SITE_KEY -R tadakuro/sales-notes-apk` (same value
-  as the web repo's `SITE_KEY`), or repo → Settings → Secrets → Actions.
-  `SYNC_URL` is already set on this repo.
-- The Build APK workflow hashes `sn::<key>` with SHA-256 and injects only the hash into the APK's `site/app.js`. The raw key never lands in git.
+## Secrets (repo owner)
+- `SYNC_URL` is already set on this repo (points at the Cloudflare Worker).
+- No `SITE_KEY` needed here: the APK authenticates purely with account tokens.
+  (The legacy `SITE_KEY` bearer is still honored server-side for old clients.)
 - Honest limits: this is a static site, so the gate is a *casual* lock — all code ships to the browser, and anyone technical can bypass client-side checks. Use a long passphrase. Real access control would need a server in front.
 
 ## Android APK
