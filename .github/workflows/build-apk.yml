@@ -76,15 +76,26 @@ jobs:
         with:
           gradle-version: 8.7
 
-      - name: Build debug APK
+      - name: Restore release keystore
+        env:
+          ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+        run: |
+          if [ -z "$ANDROID_KEYSTORE_BASE64" ]; then echo "ANDROID_KEYSTORE_BASE64 secret is not set"; exit 1; fi
+          echo "$ANDROID_KEYSTORE_BASE64" | base64 -d > /tmp/release.jks
+          echo "ANDROID_KEYSTORE_PATH=/tmp/release.jks" >> "$GITHUB_ENV"
+          echo "ANDROID_KEYSTORE_PASSWORD=${{ secrets.ANDROID_KEYSTORE_PASSWORD }}" >> "$GITHUB_ENV"
+          echo "ANDROID_KEY_ALIAS=${{ secrets.ANDROID_KEY_ALIAS }}" >> "$GITHUB_ENV"
+          echo "ANDROID_KEY_PASSWORD=${{ secrets.ANDROID_KEY_PASSWORD }}" >> "$GITHUB_ENV"
+
+      - name: Build release APK (release-signed, non-debuggable)
         working-directory: android
-        run: gradle :app:assembleDebug -PversionCode="$GITHUB_RUN_NUMBER" -PversionName="$VERSION_NAME" --stacktrace
+        run: gradle :app:assembleRelease -PversionCode="$GITHUB_RUN_NUMBER" -PversionName="$VERSION_NAME" --stacktrace
 
       - name: Rename APK
         run: |
           TAG="${{ inputs.release_tag }}"
           if [ -n "$TAG" ]; then NAME="sales-notes-${TAG}.apk"; else NAME="sales-notes-dev-r${GITHUB_RUN_NUMBER}.apk"; fi
-          cp android/app/build/outputs/apk/debug/app-debug.apk "$NAME"
+          cp android/app/build/outputs/apk/release/app-release.apk "$NAME"
           echo "APK_NAME=$NAME" >> "$GITHUB_ENV"
           ls -lh "$NAME"
 
@@ -108,9 +119,9 @@ jobs:
           - Sinkron multi-perangkat via Cloudflare Worker + D1
           ### Install
           1. Download \`${APK_NAME}\` di bawah, buka di HP Android (min Android 7.0)
-          2. Izinkan *Install unknown apps* saat diminta
-          3. Masukkan site key yang sama seperti versi web
-          > APK ini debug-signed (cukup untuk sideload pribadi). Data tersimpan lokal di HP, tidak dikirim ke mana-mana kecuali sync ke Worker milikmu.
+          2. Izinkan *Install unknown apps* saat diminta (peringatan standar untuk aplikasi di luar Play Store — pilih Install anyway)
+          3. Daftar/Masuk dengan akunmu
+          > Pindah dari versi debug lama (v1.0–v1.2)? Uninstall dulu versi lamanya (beda package), lalu Export JSON di app lama → Import di app baru supaya data ikut pindah. Mulai v1.3.0 APK release-signed dengan kunci tetap, jadi update berikutnya tinggal install menimpa.
           "
           if [ "${{ inputs.prerelease }}" = "true" ]; then PRE="--prerelease"; else PRE=""; fi
           if gh release view "$TAG" >/dev/null 2>&1; then
