@@ -157,6 +157,14 @@
   <!-- ================= SETTINGS ================= -->
   <section id="tab-settings" class="tabpage hidden">
     <div class="card">
+      <h2>🆕 Yang baru <span id="changelogVer" class="ver-pill"></span></h2>
+      <ul id="changelogLatest" class="changelog"></ul>
+      <details>
+        <summary class="muted small">Riwayat versi</summary>
+        <div id="changelogHist"></div>
+      </details>
+    </div>
+    <div class="card">
       <h2>🏪 Toko</h2>
       <label class="lbl">Nama<input id="sShop" placeholder="My Sales Notes"></label>
       <label class="lbl">Mata uang<input id="sCur" placeholder="Rp"></label>
@@ -189,7 +197,7 @@
   <button class="tab" data-tab="products">📦<span>Produk</span></button>
   <button class="tab" data-tab="stats">📊<span>Stats</span></button>
   <button class="tab" data-tab="history">🕘<span>Riwayat</span></button>
-  <button class="tab" data-tab="settings">⚙️<span>Lainnya</span></button>
+  <button class="tab" data-tab="settings">⚙️<span>Lainnya</span><i id="updDot" class="upd-dot hidden"></i></button>
 </nav>
 
 <div id="toasts" aria-live="polite"></div>

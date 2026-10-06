@@ -165,3 +165,9 @@ tr:last-child td{border-bottom:none}
 .search-hit{display:flex;justify-content:space-between;align-items:center;gap:8px;padding:11px 13px;border-radius:12px;border:1.5px solid var(--line);background:#0e1528;color:var(--ink);font-size:15px;cursor:pointer;text-align:left}
 .search-hit span{color:var(--green);font-weight:800;white-space:nowrap}
 .empty.small{font-size:13px}
+.ver-pill{font-size:12px;font-weight:800;color:var(--brand);background:#082f49;border-radius:999px;padding:2px 10px;vertical-align:middle}
+.changelog{margin:6px 0 6px 18px;padding:0;font-size:14px;display:flex;flex-direction:column;gap:4px}
+.ver-entry{margin-top:10px;font-size:13px}
+.ver-entry ul{margin:4px 0 0 18px;padding:0;display:flex;flex-direction:column;gap:3px}
+details summary{cursor:pointer}
+.upd-dot{width:8px;height:8px;border-radius:50%;background:#f87171;display:inline-block;margin-left:4px;vertical-align:super}

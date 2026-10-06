@@ -69,6 +69,9 @@ jobs:
           URL_ESC=$(printf '%s' "${SYNC_URL:-}" | sed 's/[&|]/\\&/g')
           sed -i "s|__SYNC_URL__|${URL_ESC}|g" app.js
           if grep -q "__SYNC_URL__" app.js; then echo "sync url injection failed"; exit 1; fi
+          # App version shown in Lainnya → Yang baru.
+          sed -i "s/__APP_VERSION__/${VER}/g" app.js
+          if grep -q "__APP_VERSION__" app.js; then echo "app version injection failed"; exit 1; fi
           echo "assets ready (version $VER)"
 
       - name: Set up Gradle

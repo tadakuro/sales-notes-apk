@@ -249,6 +249,7 @@ document.querySelectorAll('.bottomnav .tab[data-tab]').forEach(b => b.addEventLi
   if (b.dataset.tab === 'stats') renderStats();
   if (b.dataset.tab === 'history') loadHistory();
   if (b.dataset.tab === 'products') renderProducts();
+  if (b.dataset.tab === 'settings') { renderChangelog(); markVerSeen(); }
   window.scrollTo({ top: 0 });
 }));
 
@@ -461,6 +462,7 @@ function refreshTitles() {
   document.title = (settings.shop_name || 'My Sales Notes') + ' — Kasir';
   $('sShop').value = settings.shop_name || ''; $('sCur').value = settings.currency || 'Rp';
   renderShiftToggles();
+  renderChangelog(); updateVerBadge();
   const acctLine = $('acctLine');
   if (acctLine) acctLine.innerHTML = ACC.uid
     ? ('Masuk sebagai <b>' + esc(ACC.username) + '</b> · panel pribadi tersinkron ke semua perangkat.')
@@ -545,6 +547,65 @@ function setShift(s) {
     el.className = viewShift === k ? 'active-shift' : '';
   });
   try { if (viewDate) renderSell(); } catch (e) {}
+}
+
+/* ---------- version + patch notes (shown in Lainnya) ---------- */
+// APP_VERSION is injected at APK build time (__APP_VERSION__ → e.g. "1.4.0").
+const APP_VERSION = "__APP_VERSION__";
+const CHANGELOG = [
+  { v: '1.4.0', date: '2026-10-06', notes: [
+    '🔍 Cari produk di tab Jual — ketik nama, ketuk hasil, form langsung terisi',
+    '⏰ Shift Pagi/Siang/Lembur bisa on/off dari Lainnya (min. 1 aktif)',
+    '🧹 Menu Bagikan & Backup dihapus — data aman tersimpan di akun + tersinkron',
+    '🆕 Info versi & catatan update tampil di menu ini',
+  ] },
+  { v: '1.3.0', date: '2026-10-05', notes: [
+    '🔐 Aplikasi ditandatangani rilis — instal lebih dipercaya Play Protect',
+    '⚠️ Update dari versi debug wajib uninstall dulu (beda identitas aplikasi)',
+  ] },
+  { v: '1.2.0', date: '2026-10-05', notes: [
+    '👤 Masuk/Daftar akun — tiap akun punya panel catatan sendiri',
+  ] },
+  { v: '1.1.0', date: '2026-10-04', notes: [
+    '📊 Statistik, Riwayat, dan Produk cepat',
+    '☁️ Sinkron multi-perangkat via Cloudflare',
+  ] },
+];
+const LS_VER = 'sn_seen_ver'; // app-level (not per account): last version the user opened
+function appVer() {
+  return (typeof APP_VERSION === 'string' && !APP_VERSION.startsWith('__')) ? APP_VERSION : 'dev';
+}
+function renderChangelog() {
+  const list = $('changelogLatest');
+  if (!list) return;
+  const cur = CHANGELOG.find(c => c.v === appVer()) || CHANGELOG[0];
+  const pill = $('changelogVer');
+  if (pill) pill.textContent = 'v' + cur.v + (cur.date ? ' · ' + cur.date : '');
+  list.innerHTML = '';
+  cur.notes.forEach(n => { const li = document.createElement('li'); li.textContent = n; list.appendChild(li); });
+  const hist = $('changelogHist');
+  if (!hist) return;
+  hist.innerHTML = '';
+  CHANGELOG.forEach(c => {
+    const d = document.createElement('div');
+    d.className = 'ver-entry';
+    const h = document.createElement('b');
+    h.textContent = 'v' + c.v + (c.date ? ' · ' + c.date : '');
+    const ul = document.createElement('ul');
+    c.notes.forEach(n => { const li = document.createElement('li'); li.textContent = n; ul.appendChild(li); });
+    d.appendChild(h); d.appendChild(ul); hist.appendChild(d);
+  });
+}
+function updateVerBadge() {
+  const dot = $('updDot');
+  if (!dot) return;
+  let seen = '';
+  try { seen = localStorage.getItem(LS_VER) || ''; } catch (e) {}
+  dot.classList.toggle('hidden', seen === appVer());
+}
+function markVerSeen() {
+  try { localStorage.setItem(LS_VER, appVer()); } catch (e) {}
+  updateVerBadge();
 }
 
 /* ---------- SELL ---------- */
