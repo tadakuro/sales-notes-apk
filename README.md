@@ -38,7 +38,6 @@ Sales sync automatically through Cloudflare Workers + D1 (free tier):
 open the site on any device, log in to your account, everything appears.
 Works offline too — entries queue locally and sync when back online
 (header shows ✓ synced / … syncing / ✕ offline).
-Manual Export/Import JSON remains as backup.
 First login on a device that still holds pre-account data offers to move it
 (with fresh ids) into your new private panel.
 
@@ -105,8 +104,8 @@ curl -s "$W/api/stats?month=2026-10" -H "$AUTH"            # totals + top items
 - every `main` push → verification build (APK in the run's Artifacts)
 - **Releases**: Actions → `Build APK` → `Run workflow` → fill `release_tag`
   (e.g. `v1.2.0`) → APK published at repo → Releases
-- sideload on Android 7.0+, Masuk/Daftar with your account; Export JSON
-  backup saves to Downloads, Import reads JSON backup.
+- sideload on Android 7.0+, Masuk/Daftar with your account. Data lives on the
+  device and syncs to your private panel — no manual backup needed.
 
 ## Optional: local Python backend
 `app.py` + `static/` is the older version with a real server + SQLite

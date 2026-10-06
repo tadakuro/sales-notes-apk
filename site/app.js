@@ -877,53 +877,6 @@ function renderSearch() {
     box.appendChild(b);
   });
 }
-function exportDB() {
-  const blob = new Blob([JSON.stringify({ entries: loadEntries(), notes: loadNotes(), states: loadStates(), products: loadProducts(), settings, exported_at: nowIso() }, null, 2)], { type: 'application/json' });
-  const a = document.createElement('a');
-  a.href = URL.createObjectURL(blob);
-  a.download = 'sales-notes-' + todayStr() + '.json';
-  a.click();
-  setTimeout(() => URL.revokeObjectURL(a.href), 5000);
-  toast('Backup diunduh', 'ok');
-}
-async function importDB() {
-  const f = $('importFile').files[0];
-  if (!f) { toast('Pilih file JSON dulu', 'err'); return; }
-  let j;
-  try { j = JSON.parse(await f.text()); } catch (e) { toast('JSON tidak valid', 'err'); return; }
-  const incoming = j.entries || j.sales;
-  if (!incoming) { toast('File backup salah', 'err'); return; }
-  if (!confirm('OK = TIMPA semua data\nCancel = TAMBAH di atas')) return;
-  const stamp = nowIso();
-  const list = [];
-  (Array.isArray(incoming) ? incoming : []).forEach(e => {
-    const date = String(e.date || '').trim();
-    const item = String(e.item || e.name || '').trim();
-    const qty = Number(e.qty ?? 1), price = Number(e.price ?? 0);
-    if (!/^\d{4}-\d{2}-\d{2}$/.test(date) || !item || !(qty > 0) || !(price >= 0)) return;
-    const payment = String(e.payment || 'cash').toLowerCase() === 'qris' ? 'qris' : 'cash';
-    list.push({ id: String(e.id || uid()), note_id: String(e.note_id || ''), date, item, qty, price, subtotal: Math.round(qty * price * 100) / 100, payment, note: '', created_at: e.created_at || stamp, updated_at: stamp, deleted: 0 });
-  });
-  saveEntries(list);
-  if (j.settings && (j.settings.shop_name || j.settings.currency || j.settings.shifts)) {
-  if (j.settings.shop_name) settings.shop_name = String(j.settings.shop_name).slice(0, 60);
-  if (j.settings.currency) settings.currency = String(j.settings.currency).slice(0, 10);
-  if (j.settings.shifts) settings.shifts = normShifts(j.settings.shifts);
-    localStorage.setItem(LS_S, JSON.stringify(settings));
-    localStorage.setItem(LS_SU, nowIso());
-    try { localStorage.setItem(LS_DSET, '1'); } catch (e) {}
-  }
-  if (Array.isArray(j.notes)) {
-    const nn = j.notes.map(n => ({ ...n, shift: normShift(n.shift || 'pagi') }));
-    saveNotes(nn);
-  }
-  if (j.states) localStorage.setItem(LS_ST, JSON.stringify(j.states));
-  if (Array.isArray(j.products)) { saveProducts(j.products); localStorage.setItem(LS_DP, JSON.stringify(j.products.map(p => p.id))); }
-  localStorage.removeItem(LS_MG); migrate();
-  $('importFile').value = '';
-  renderAll(); syncSoon(); toast('Import ' + list.length + ' sales ✓', 'ok');
-}
-
 /* ---------- cloud sync (offline-first, +products) ---------- */
 let syncing = false, syncTimer = null;
 const LS_OK = 'sn_last_ok';
@@ -1105,8 +1058,6 @@ $('statMonth').addEventListener('change', renderStats);
 $('btnLoadHist').addEventListener('click', loadHistory);
 $('btnSaveSettings').addEventListener('click', saveSettings);
 $('btnChangeKey').addEventListener('click', changeKey);
-$('btnExport').addEventListener('click', exportDB);
-$('btnImport').addEventListener('click', importDB);
 $('fSearch').addEventListener('input', renderSearch);
 
 /* ---------- init ---------- */
