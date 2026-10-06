@@ -44,6 +44,11 @@ function authed() {
 }
 let viewDate = null;
 let viewShift = 'pagi';
+// Shift is chosen once on the login screen and locks the session.
+// (Old builds had shift buttons in Jual + on/off toggles in Lainnya — removed.)
+let loginShift = 'pagi';
+try { loginShift = normShift(sessionStorage.getItem('sn_shift') || 'pagi'); } catch (e) { loginShift = 'pagi'; }
+viewShift = loginShift;
 let payMethod = 'cash';
 let editPid = null;
 
@@ -298,7 +303,7 @@ async function checkGate() {
   if (IS_APK && accountsMode()) {
     legacy.classList.add('hidden'); login.classList.add('hidden'); acct.classList.remove('hidden');
     $('authHint').textContent = 'Masuk untuk membuka panel tokomu — setiap akun punya catatan sendiri.';
-    renderAcctChips(); setAuthMode(authMode); refreshTitles();
+    renderAcctChips(); setAuthMode(authMode); setLoginShift(loginShift); refreshTitles();
     if (ACC.token) { hideAuth(); afterLogin(true); syncNow(); return; }
     showAuth(); return;
   }
@@ -345,7 +350,7 @@ async function doAccountAuth() {
     authErr(map[j.error] || ('Gagal (' + r.status + ').')); return;
   }
   await enterAccount(j.account.id, j.account.username, j.token, p);
-  toast((authMode === 'register' ? 'Akun dibuat ✓ Selamat datang, ' : 'Selamat datang, ') + j.account.username, 'ok');
+  toast((authMode === 'register' ? 'Akun dibuat ✓ Selamat datang, ' : 'Selamat datang, ') + j.account.username + ' · ' + shiftLabel(loginShift), 'ok');
 }
 async function unlockOffline(u, p) {
   // No connection: unlock with this device's remembered password verifier.
@@ -360,6 +365,9 @@ async function enterAccount(uid, username, token, password, offline) {
   ACC = { uid, username, token };
   try { localStorage.setItem(LS_CUR, uid); } catch (e) {}
   setNs(uid);
+  // Lock this session to the shift picked on the login screen.
+  try { loginShift = normShift(sessionStorage.getItem('sn_shift') || loginShift || 'pagi'); } catch (e) {}
+  viewShift = normShift(loginShift);
   const accts = loadAccts();
   if (password) accts[uid] = { username, token, verifier: await hashPin(password) };
   else accts[uid] = { username, token, verifier: (accts[uid] && accts[uid].verifier) || '' };
@@ -430,7 +438,9 @@ async function doLogout() {
 function afterLogin(skipSync) {
   loadSettings(); refreshTitles(); migrate();
   viewDate = todayStr();
-  if (!shiftEnabled(viewShift)) viewShift = firstShift();
+  // Session shift comes from the login picker (locked until logout).
+  try { loginShift = normShift(sessionStorage.getItem('sn_shift') || loginShift || 'pagi'); } catch (e) {}
+  viewShift = normShift(loginShift);
   $('viewDate').value = viewDate;
   $('histMonth').value = todayStr().slice(0, 7);
   $('statMonth').value = todayStr().slice(0, 7);
@@ -439,17 +449,15 @@ function afterLogin(skipSync) {
   if (!skipSync) syncNow();
 }
 
-/* ---------- settings ---------- */
-/* ---------- settings (incl. per-account shift toggles) ---------- */
+/* ---------- settings (shift now locked to login choice) ---------- */
 const SHIFT_KEYS = ['pagi', 'siang', 'lembur'];
 function normShifts(v) {
-  const d = { pagi: true, siang: true, lembur: true };
-  if (v && typeof v === 'object') SHIFT_KEYS.forEach(k => { d[k] = v[k] !== false; });
-  if (!d.pagi && !d.siang && !d.lembur) d.pagi = true; // at least one stays on
-  return d;
+  // Kept for sync compat with older builds: always all-on now.
+  // Old per-account on/off toggles were removed — shift is chosen at login.
+  return { pagi: true, siang: true, lembur: true };
 }
-function shiftEnabled(s) { return normShifts(settings.shifts)[normShift(s)]; }
-function firstShift() { const c = normShifts(settings.shifts); return SHIFT_KEYS.find(k => c[k]) || 'pagi'; }
+function shiftEnabled(s) { return true; }
+function firstShift() { return normShift(loginShift || 'pagi'); }
 function loadSettings() {
   settings.shop_name = 'My Sales Notes'; settings.currency = 'Rp'; settings.shifts = null;
   try { Object.assign(settings, JSON.parse(localStorage.getItem(LS_S)) || {}); } catch (e) {}
@@ -461,35 +469,40 @@ function refreshTitles() {
   $('authShopName').textContent = settings.shop_name || 'My Sales Notes';
   document.title = (settings.shop_name || 'My Sales Notes') + ' — Kasir';
   $('sShop').value = settings.shop_name || ''; $('sCur').value = settings.currency || 'Rp';
-  renderShiftToggles();
+  renderShiftBadge();
   renderChangelog(); updateVerBadge();
   const acctLine = $('acctLine');
   if (acctLine) acctLine.innerHTML = ACC.uid
     ? ('Masuk sebagai <b>' + esc(ACC.username) + '</b> · panel pribadi tersinkron ke semua perangkat.')
     : 'Mode kunci lama — daftar/masuk untuk panel pribadi per akun.';
 }
-function renderShiftToggles() {
-  const c = normShifts(settings.shifts);
-  SHIFT_KEYS.forEach(k => {
-    const b = $('shiftTg_' + k);
-    if (b) b.className = c[k] ? 'on' : 'off';
-  });
+function renderShiftBadge() {
+  const badge = shiftBadge(viewShift);
+  const cur = $('curShiftBadge');
+  if (cur) cur.textContent = badge;
+  const line = $('shiftLine');
+  if (line) line.textContent = badge;
 }
+function renderShiftToggles() { renderShiftBadge(); }
 function toggleShift(k) {
-  const c = normShifts(settings.shifts);
-  c[k] = !c[k];
-  if (!c.pagi && !c.siang && !c.lembur) { toast('Minimal 1 shift aktif', 'err'); return; }
-  settings.shifts = c;
-  saveSettings();
+  toast('Shift dipilih saat login — keluar akun untuk ganti shift', 'info');
+}
+function setLoginShift(s) {
+  loginShift = normShift(s);
+  try { sessionStorage.setItem('sn_shift', loginShift); } catch (e) {}
+  const ids = { pagi: 'authShiftPagi', siang: 'authShiftSiang', lembur: 'authShiftLembur' };
+  SHIFT_KEYS.forEach(k => {
+    const el = $(ids[k]);
+    if (el) el.className = loginShift === k ? 'active-shift' : '';
+  });
 }
 function saveSettings() {
   settings.shop_name = $('sShop').value.trim() || 'My Sales Notes';
   settings.currency = $('sCur').value.trim() || 'Rp';
-  settings.shifts = normShifts(settings.shifts);
+  settings.shifts = { pagi: true, siang: true, lembur: true };
   localStorage.setItem(LS_S, JSON.stringify(settings));
   localStorage.setItem(LS_SU, nowIso());
   try { localStorage.setItem(LS_DSET, '1'); } catch (e) {}
-  if (!shiftEnabled(viewShift)) setShift(firstShift());
   refreshTitles(); renderAll(); syncSoon(); toast('Tersimpan ✓ — dikirim ke semua perangkat', 'ok');
 }
 async function changeKey() {
@@ -536,16 +549,8 @@ function setPay(p) {
   $('payQris').className = p === 'qris' ? 'active-qris' : '';
 }
 function setShift(s) {
-  let sh = normShift(s);
-  if (!shiftEnabled(sh)) sh = firstShift();
-  viewShift = sh;
-  const ids = { pagi: 'shiftPagi', siang: 'shiftSiang', lembur: 'shiftLembur' };
-  SHIFT_KEYS.forEach(k => {
-    const el = $(ids[k]);
-    if (!el) return;
-    el.style.display = shiftEnabled(k) ? '' : 'none';
-    el.className = viewShift === k ? 'active-shift' : '';
-  });
+  viewShift = normShift(s || loginShift || 'pagi');
+  renderShiftBadge();
   try { if (viewDate) renderSell(); } catch (e) {}
 }
 
@@ -553,6 +558,10 @@ function setShift(s) {
 // APP_VERSION is injected at APK build time (__APP_VERSION__ → e.g. "1.4.0").
 const APP_VERSION = "__APP_VERSION__";
 const CHANGELOG = [
+  { v: '1.5.0', date: '2026-10-06', notes: [
+    '⏰ Shift dipilih saat login — sesi terkunci ke shift itu (keluar akun untuk ganti)',
+    '🧹 Tombol shift di form Jual + toggle shift di Lainnya dihapus',
+  ] },
   { v: '1.4.0', date: '2026-10-06', notes: [
     '🔍 Cari produk di tab Jual — ketik nama, ketuk hasil, form langsung terisi',
     '⏰ Shift Pagi/Siang/Lembur bisa on/off dari Lainnya (min. 1 aktif)',
@@ -659,7 +668,7 @@ function saveManual() {
   if (!item) { toast('Nama barang wajib', 'err'); $('fItem').focus(); return; }
   if (!(qty > 0)) { toast('Qty harus > 0', 'err'); $('fQty').focus(); return; }
   if (!isFinite(price) || price < 0) { toast('Harga wajib (0 boleh)', 'err'); $('fPrice').focus(); return; }
-  if (!shiftEnabled(viewShift)) { setShift(firstShift()); toast('Shift dialihkan ke ' + shiftLabel(viewShift), 'info'); }
+  viewShift = normShift(loginShift || viewShift || 'pagi');
   const note = writableNote(viewDate, viewShift);
   const now = nowIso();
   const sub = Math.round(qty * price * 100) / 100;
@@ -1095,18 +1104,15 @@ $('btnAuthGo').addEventListener('click', doAccountAuth);
 $('authPass').addEventListener('keydown', e => { if (e.key === 'Enter') doAccountAuth(); });
 $('authUser').addEventListener('keydown', e => { if (e.key === 'Enter') $('authPass').focus(); });
 $('btnLogout').addEventListener('click', doLogout);
-$('shiftTg_pagi').addEventListener('click', () => toggleShift('pagi'));
-$('shiftTg_siang').addEventListener('click', () => toggleShift('siang'));
-$('shiftTg_lembur').addEventListener('click', () => toggleShift('lembur'));
+if ($('authShiftPagi')) $('authShiftPagi').addEventListener('click', () => setLoginShift('pagi'));
+if ($('authShiftSiang')) $('authShiftSiang').addEventListener('click', () => setLoginShift('siang'));
+if ($('authShiftLembur')) $('authShiftLembur').addEventListener('click', () => setLoginShift('lembur'));
 $('btnPrevDay').addEventListener('click', () => { const [y, m, d] = viewDate.split('-').map(Number); viewDate = localDay(new Date(y, m - 1, d - 1)); $('viewDate').value = viewDate; renderSell(); });
 $('btnNextDay').addEventListener('click', () => { const [y, m, d] = viewDate.split('-').map(Number); viewDate = localDay(new Date(y, m - 1, d + 1)); $('viewDate').value = viewDate; renderSell(); });
 $('btnToday').addEventListener('click', () => { viewDate = todayStr(); $('viewDate').value = viewDate; renderSell(); });
 $('viewDate').addEventListener('change', e => { if (e.target.value) { viewDate = e.target.value; renderSell(); } });
 $('payCash').addEventListener('click', () => setPay('cash'));
 $('payQris').addEventListener('click', () => setPay('qris'));
-if ($('shiftPagi')) $('shiftPagi').addEventListener('click', () => setShift('pagi'));
-if ($('shiftSiang')) $('shiftSiang').addEventListener('click', () => setShift('siang'));
-if ($('shiftLembur')) $('shiftLembur').addEventListener('click', () => setShift('lembur'));
 $('btnSave').addEventListener('click', saveManual);
 $('fQty').addEventListener('input', updSub);
 $('fPrice').addEventListener('input', updSub);
@@ -1130,9 +1136,10 @@ $('fSearch').addEventListener('input', renderSearch);
     if (cur && accts[cur] && accts[cur].token) ACC = { uid: cur, username: accts[cur].username, token: accts[cur].token };
     setNs(ACC.uid);
   } catch (e) { setNs(''); }
+  try { loginShift = normShift(sessionStorage.getItem('sn_shift') || 'pagi'); } catch (e) { loginShift = 'pagi'; }
   loadSettings(); migrate();
   viewDate = todayStr();
-  viewShift = firstShift();
+  viewShift = normShift(loginShift);
   $('viewDate').value = viewDate;
   $('histMonth').value = todayStr().slice(0, 7);
   $('statMonth').value = todayStr().slice(0, 7);

@@ -61,13 +61,7 @@
 
     <div class="card">
       <h2>+ Tambah penjualan</h2>
-      <p class="muted small">Isi lalu tekan Simpan — langsung masuk catatan shift ini</p>
-      <label class="lbl">Shift *</label>
-      <div class="shift-seg">
-        <button id="shiftPagi" class="active-shift">☀️ Pagi</button>
-        <button id="shiftSiang">🌤️ Siang</button>
-        <button id="shiftLembur">🌙 Lembur</button>
-      </div>
+      <p class="muted small">Shift aktif: <b id="curShiftBadge">☀️ Pagi</b> — dipilih saat login. Keluar akun untuk ganti shift.</p>
       <label class="lbl">Nama barang *<input id="fItem" placeholder="mis. Kopi susu" autocomplete="off"></label>
       <div class="form-2col">
         <label class="lbl">Qty *<input id="fQty" type="number" min="1" step="1" value="1" inputmode="numeric"></label>
@@ -171,17 +165,9 @@
       <button id="btnSaveSettings" class="btn primary">Simpan</button>
     </div>
     <div class="card">
-      <h2>⏰ Shift aktif</h2>
-      <p class="muted small">Matikan shift yang tidak dipakai — tombolnya hilang dari form Jual. Minimal 1 shift aktif. Data lama tetap tersimpan.</p>
-      <div class="shift-seg" id="shiftToggles">
-        <button id="shiftTg_pagi" class="on" type="button">☀️ Pagi</button>
-        <button id="shiftTg_siang" class="on" type="button">🌤️ Siang</button>
-        <button id="shiftTg_lembur" class="on" type="button">🌙 Lembur</button>
-      </div>
-    </div>
-    <div class="card">
       <h2>👤 Akun</h2>
       <p class="muted small" id="acctLine"></p>
+      <p class="muted small">Shift sesi ini: <b id="shiftLine">☀️ Pagi</b> · keluar akun untuk ganti shift.</p>
       <p class="muted small" id="keyModeHint">Kunci perangkat ini.</p>
       <label class="lbl">Password lama<input id="kOld" type="password" placeholder="saat ini"></label>
       <label class="lbl">Password baru (min 4)<input id="kNew" type="password" placeholder="baru"></label>
@@ -215,6 +201,12 @@
       <div id="authChips" class="chips hidden"></div>
       <label class="lbl">Username<input id="authUser" placeholder="mis. toko-berkah" autocomplete="username"></label>
       <label class="lbl">Password<input id="authPass" type="password" placeholder="min. 4 karakter" autocomplete="current-password"></label>
+      <label class="lbl">Shift *</label>
+      <div class="shift-seg" id="authShiftSeg">
+        <button id="authShiftPagi" class="active-shift" type="button">☀️ Pagi</button>
+        <button id="authShiftSiang" type="button">🌤️ Siang</button>
+        <button id="authShiftLembur" type="button">🌙 Lembur</button>
+      </div>
       <button id="btnAuthGo" class="btn primary big">Masuk</button>
       <p class="muted small">Setiap akun punya panel catatan sendiri — tidak tercampur akun lain.</p>
     </div>
